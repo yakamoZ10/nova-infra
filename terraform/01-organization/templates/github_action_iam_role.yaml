@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create GitHub Actions OIDC IAM role with custom inline policy
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository (org/repo)
+
+  SanitizedRepoName:
+    Type: String
+    Description: GitHub repository name for use in IAM role name (org-repo)
+  
+  CustomPolicy:
+    Type: String
+    Description: Inline JSON IAM policy for the IAM role 
+
+Resources:
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub github-actions-${SanitizedRepoName}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: "sts.amazonaws.com"
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:*
+      Description: GitHub Actions OIDC IAM role
+      MaxSessionDuration: 3600
+
+  CustomPolicyAttachment:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub github-policy-${SanitizedRepoName}
+      PolicyDocument: !Ref CustomPolicy
+      Roles:
+        - !Ref IAMRole
+
+

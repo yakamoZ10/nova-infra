@@ -1,0 +1,24 @@
+name: global-00-bootstrap-plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "terraform/00-bootstrap/**"
+      - ".github/workflows/global-00-bootstrap-plan.yaml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+  
+jobs:
+  terraform-plan:
+    uses: devops-engineer-associate-1/shared-github-workflows/.github/workflows/terraform-plan-template.yaml@main
+    with:
+      terraform_version: "1.5.7"
+      working_directory: './terraform/00-bootstrap'
+      aws_iam_role_arn: 'arn:aws:iam::693868819116:role/github-nova-infra-role-management'
+      aws_iam_role_session_name: "github-nova-infra-role-management"
+      aws_region: "eu-central-1"
