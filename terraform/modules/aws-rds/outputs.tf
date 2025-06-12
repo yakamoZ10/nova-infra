@@ -3,7 +3,7 @@ output "rds_sg_id" {
 }
 
 output "rds_secret_arn" {
-  value = aws_secretsmanager_secret.rds_credentials.arn
+  value = aws_db_instance.postgres.master_user_secret
 }
 
 output "rds_endpoint" {
@@ -21,4 +21,3 @@ output "rds_instance_arn" {
 output "rds_host" {
   value = aws_db_instance.postgres.address
 }
-

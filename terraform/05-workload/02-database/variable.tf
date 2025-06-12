@@ -1,11 +1,5 @@
-variable "db_username" {
-  description = "Master username for RDS"
+variable "environment" {
   type        = string
-  default     = "admin"
-}
-
-variable "db_password" {
-  description = "Master password for RDS"
-  type        = string
-  sensitive   = true
+  description = "The name of the environment such as: dev, qa, staging, prod etc."
+  default     = "dev"
 }

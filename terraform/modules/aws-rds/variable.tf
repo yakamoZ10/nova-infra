@@ -1,3 +1,7 @@
+variable "rds_name" {
+  type        = string
+  description = "The name of the RDS"
+}
 
 variable "vpc_id" {
   type        = string
@@ -10,16 +14,16 @@ variable "db_username" {
   sensitive   = true
 }
 
-variable "db_password" {
-  type        = string
-  description = "Master password for the RDS database."
-  sensitive   = true
-}
+# variable "db_password" {
+#   type        = string
+#   description = "Master password for the RDS database."
+#   sensitive   = true
+# }
 
-variable "allowed_cidrs" {
+variable "allowed_security_groups" {
   type        = list(string)
-  description = "List of CIDR blocks allowed to access the RDS database (typically internal)."
-  default     = ["10.0.0.0/16"]
+  description = "List of security groups allowed to access the RDS database (typically internal)."
+  default     = []
 }
 
 variable "private_subnet_ids" {
@@ -27,8 +31,8 @@ variable "private_subnet_ids" {
   description = "List of private subnet IDs to use for the RDS subnet group."
 }
 
-variable "rds_name"{
-
-  type = string
-  description = "The name of the RDS"
+variable "tags" {
+  type        = map(any)
+  description = "Default tags to be assigned to all resources"
+  default     = {}
 }
