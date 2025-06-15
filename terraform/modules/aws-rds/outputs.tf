@@ -2,9 +2,6 @@ output "rds_sg_id" {
   value = aws_security_group.rds_sg.id
 }
 
-output "rds_secret_arn" {
-  value = aws_db_instance.postgres.master_user_secret
-}
 
 output "rds_endpoint" {
   value = aws_db_instance.postgres.endpoint
@@ -20,4 +17,9 @@ output "rds_instance_arn" {
 
 output "rds_host" {
   value = aws_db_instance.postgres.address
+}
+
+output "rds_secret_arn" {
+  value       = aws_db_instance.postgres.master_user_secret[0].secret_arn
+  description = "The ARN of the RDS-managed secret"
 }

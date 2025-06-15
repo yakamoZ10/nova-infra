@@ -14,11 +14,6 @@ variable "db_username" {
   sensitive   = true
 }
 
-# variable "db_password" {
-#   type        = string
-#   description = "Master password for the RDS database."
-#   sensitive   = true
-# }
 
 variable "allowed_security_groups" {
   type        = list(string)

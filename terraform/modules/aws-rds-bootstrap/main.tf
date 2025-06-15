@@ -2,7 +2,7 @@ resource "null_resource" "trigger_execution" {
   count = var.trigger_execution ? 1 : 0
 
   triggers = {
-    microservice = var.microservice
+    microservice = join(",", var.microservices)
   }
 
   depends_on = [aws_sfn_state_machine.bootstrap_db,
@@ -17,50 +17,63 @@ resource "null_resource" "trigger_execution" {
     
     ]
 
-  provisioner "local-exec" {
-    interpreter = ["bash", "-lc"]
-    command     = <<-EOT
-    EXEC_NAME="${var.microservice}-$(date +%Y%m%d%H%M%S)"
-      aws stepfunctions start-execution \
-        --region eu-central-1 \
-        --state-machine-arn "${aws_sfn_state_machine.bootstrap_db.arn}" \
-        --name "$EXEC_NAME" \
-        --input '{"microservice":"${var.microservice}"}'
-    EOT
-  }
+provisioner "local-exec" {
+  interpreter = ["bash", "-lc"]
+  command     = <<-EOT
+    EXEC_NAME="bootstrap-$(date +%Y%m%d%H%M%S)"
+    aws stepfunctions start-execution \
+      --region eu-central-1 \
+      --state-machine-arn "${aws_sfn_state_machine.bootstrap_db.arn}" \
+      --name "$EXEC_NAME" \
+      --input '${jsonencode({ microservices = var.microservices })}'
+  EOT
+}
 }
 
 resource "aws_sfn_state_machine" "bootstrap_db" {
-  name     = "bootstrap-db-${var.microservice}"
+  name     = "bootstrap-db"
   role_arn = aws_iam_role.step_function_role.arn
 
   definition = jsonencode({
-    Comment = "Create DB and rotate password",
+    Comment = "Create DB and Create User",
     StartAt = "CreateDatabase",
     States = {
       CreateDatabase = {
         Type     = "Task",
         Resource = aws_lambda_function.create_db.arn,
         ResultPath = "$.db_result",
-        Next     = "CreateUser"
+        Next     = "CreateUser",
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"],
+            Next        = "Fail"
+          }
+        ]
       },
       CreateUser = {
         Type     = "Task",
         Resource = aws_lambda_function.create_user.arn,
-        InputPath = "$", 
-        Next     = "RotatePassword"
-      }
-      RotatePassword = {
-        Type     = "Task",
-        Resource = aws_lambda_function.reset_password.arn,
-        End      = true
+        InputPath = "$",
+        Next     = "Succeed",
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"],
+            Next        = "Fail"
+          }
+        ]
+      },
+      Succeed = {
+        Type = "Succeed"
+      },
+      Fail = {
+        Type = "Fail"
       }
     }
   })
 }
 
 resource "aws_iam_role" "step_function_role" {
-  name = "bootstrap-step-role-${var.microservice}"
+  name = "bootstrap-step-role-db"
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -72,7 +85,7 @@ resource "aws_iam_role" "step_function_role" {
 }
 
 resource "aws_iam_policy" "lambda_vpc_access" {
-  name = "lambda-vpc-access-${var.microservice}"
+  name = "lambda-vpc-access-db"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -96,7 +109,7 @@ resource "aws_iam_role_policy_attachment" "vpc_access_attach" {
 }
 
 resource "aws_iam_role" "lambda_exec" {
-  name = "lambda-exec-role-${var.microservice}"
+  name = "lambda-exec-role-db"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -112,7 +125,7 @@ resource "aws_iam_role" "lambda_exec" {
 
 
 resource "aws_iam_policy" "invoke_lambdas" {
-  name   = "bootstrap-invoke-lambdas-${var.microservice}"
+  name   = "bootstrap-invoke-lambdas-db"
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -135,7 +148,7 @@ resource "aws_iam_role_policy_attachment" "attach_step_role" {
 
 
 resource "aws_iam_policy" "lambda_s3_access" {
-  name = "lambda-s3-access-${var.microservice}"
+  name = "lambda-s3-access-db"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -173,13 +186,13 @@ resource "aws_iam_role_policy_attachment" "basic_exec" {
 # Create databases for each Microserivce
 
 resource "aws_lambda_function" "create_db" {
-  function_name = "create-db-${var.microservice}"
+  function_name = "create-db-db"
   role          = aws_iam_role.lambda_exec.arn
   handler       = "create_db.lambda_handler"
   runtime       = "python3.8"
 
-  s3_bucket = var.lambda_s3_bucket
-  s3_key    = var.lambda_create_zip
+  filename         = data.archive_file.create_db_zip.output_path
+  source_code_hash = data.archive_file.create_db_zip.output_base64sha256
 
   environment {
     variables = {
@@ -190,24 +203,24 @@ resource "aws_lambda_function" "create_db" {
 
   vpc_config {
     subnet_ids         = var.vpc_subnet_ids
-    security_group_ids = [var.rds_sg_id]
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   layers = [aws_lambda_layer_version.psycopg2.arn]
 
-  timeout = 10
+  timeout = 40
 }
 
 # Create users for each Microservice database
 
 resource "aws_lambda_function" "create_user" {
-  function_name = "create-user-${var.microservice}"
+  function_name = "create-user-db"
   role          = aws_iam_role.lambda_exec.arn
   handler       = "create_user.lambda_handler"
   runtime       = "python3.8"
 
-  s3_bucket = var.lambda_s3_bucket
-  s3_key    = var.lambda_create_user_zip 
+  filename         = data.archive_file.create_user_zip.output_path
+  source_code_hash = data.archive_file.create_user_zip.output_base64sha256
 
   environment {
     variables = {
@@ -218,25 +231,26 @@ resource "aws_lambda_function" "create_user" {
 
   vpc_config {
     subnet_ids         = var.vpc_subnet_ids
-    security_group_ids = [var.rds_sg_id]
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   layers = [aws_lambda_layer_version.psycopg2.arn]
 
-  timeout = 10
+  timeout = 45
 }
 
 
 # Reset RDS Password Lambda
 
 resource "aws_lambda_function" "reset_password" {
-  function_name = "reset-password-${var.microservice}"
+  function_name = "reset-password-db"
   role          = aws_iam_role.lambda_exec.arn
   handler       = "reset_password.lambda_handler"
   runtime       = "python3.11"
 
-  s3_bucket = var.lambda_s3_bucket
-  s3_key    = var.lambda_reset_zip
+  
+  filename         = data.archive_file.reset_password_zip.output_path
+  source_code_hash = data.archive_file.reset_password_zip.output_base64sha256
 
   environment {
     variables = {
@@ -247,11 +261,11 @@ resource "aws_lambda_function" "reset_password" {
     }
   }
 
-  timeout = 10
+  timeout = 40
 }
 
 resource "aws_iam_policy" "lambda_rds_modify" {
-  name = "lambda-rds-modify-${var.microservice}"
+  name = "lambda-rds-modify-db"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -273,7 +287,7 @@ resource "aws_iam_role_policy_attachment" "rds_modify_attach" {
 }
 
 resource "aws_iam_policy" "lambda_secrets_access" {
-  name = "lambda-secrets-access-${var.microservice}"
+  name = "lambda-secrets-access-db"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -294,8 +308,9 @@ resource "aws_iam_policy" "lambda_secrets_access" {
           "secretsmanager:PutSecretValue",
           "secretsmanager:GetSecretValue"
         ],
-        Resource = "arn:aws:secretsmanager:eu-central-1:340752798883:secret:${var.microservice}/db-credentials*"
-      }
+        Resource = "arn:aws:secretsmanager:eu-central-1:340752798883:secret:*/*"
+        
+         }
     ]
   })
 }
@@ -305,3 +320,19 @@ resource "aws_iam_role_policy_attachment" "secrets_policy_attach" {
   policy_arn = aws_iam_policy.lambda_secrets_access.arn
 }
 
+
+
+resource "aws_security_group" "lambda_sg" {
+  name_prefix = "lambda-sg"
+  description = "Allow Lambda to access RDS"
+  vpc_id      = var.vpc_id
+
+  egress {
+
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+}

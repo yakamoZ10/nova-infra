@@ -1,5 +1,5 @@
-variable "microservice" {
-  type        = string
+variable "microservices" {
+  type        = list(string)
   description = "Name of the microservice (used to prefix resources)."
 }
 
@@ -60,20 +60,14 @@ variable "lambda_layer_arn" {
   default     = ""
 }
 
-variable "db_password" {
-
-    type =     string
-    description = "default password"
-}
-
-variable "db_username" {
-
-    type =     string
-    description = "default username"
-}
-
 variable "trigger_execution" {
   description = "Whether to start an execution after deploy"
   type        = bool
   default     = false
+}
+
+
+variable "vpc_id" {
+  type        = string
+  description = "The ID of the VPC where the RDS cluster will be deployed."
 }

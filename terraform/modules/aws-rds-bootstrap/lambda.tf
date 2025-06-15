@@ -32,13 +32,13 @@ data "archive_file" "reset_password_zip" {
 
 }
 
-  resource "aws_s3_object" "create_db_lambda_zip" {
-  bucket = "nova-devops-1-terraform-state"
-  key    = "lambdas/create_db.zip"
-  source = data.archive_file.create_db_zip.output_path
-  etag   = filemd5(data.archive_file.create_db_zip.output_path)
+#   resource "aws_s3_object" "create_db_lambda_zip" {
+#   bucket = "nova-devops-1-terraform-state"
+#   key    = "lambdas/create_db.zip"
+#   source = data.archive_file.create_db_zip.output_path
+#   etag   = filemd5(data.archive_file.create_db_zip.output_path)
 
-}
+# }
 
 resource "aws_s3_object" "reset_password_lambda_zip" {
 
@@ -52,12 +52,12 @@ resource "aws_s3_object" "reset_password_lambda_zip" {
 }
 
 
-resource "aws_s3_object" "create_user_lambda_zip" {
-  bucket = "nova-devops-1-terraform-state"
-  key    = "lambdas/create_user.zip"
-  source = data.archive_file.create_user_zip.output_path
-  etag   = filemd5(data.archive_file.create_user_zip.output_path)
-}
+# resource "aws_s3_object" "create_user_lambda_zip" {
+#   bucket = "nova-devops-1-terraform-state"
+#   key    = "lambdas/create_user.zip"
+#   source = data.archive_file.create_user_zip.output_path
+#   etag   = filemd5(data.archive_file.create_user_zip.output_path)
+# }
 
 data "archive_file" "create_user_zip" {
   type        = "zip"
@@ -65,10 +65,10 @@ data "archive_file" "create_user_zip" {
   output_path = "${path.module}/lambda/create_user.zip"
 }
 
-resource "aws_s3_object" "psycopg2_layer_zip" {
-  bucket = "nova-devops-1-terraform-state"
-  key    = "layers/psycopg2-layer-py38.zip"
-  source = "${path.module}/lambda/psycopg2-layer-py38.zip"
-  etag   = filemd5("${path.module}/lambda/psycopg2-layer-py38.zip")
-}
+# resource "aws_s3_object" "psycopg2_layer_zip" {
+#   bucket = "nova-devops-1-terraform-state"
+#   key    = "layers/psycopg2-layer-py38.zip"
+#   source = "${path.module}/lambda/psycopg2-layer-py38.zip"
+#   etag   = filemd5("${path.module}/lambda/psycopg2-layer-py38.zip")
+# }
 
