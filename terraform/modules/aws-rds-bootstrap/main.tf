@@ -170,8 +170,8 @@ resource "aws_iam_role_policy_attachment" "lambda_s3_access_attach" {
 resource "aws_lambda_layer_version" "psycopg2" {
   layer_name          = "psycopg2"
   compatible_runtimes = ["python3.8"]
-  s3_bucket           = "nova-devops-1-terraform-state"
-  s3_key              = "layers/psycopg2-layer-py38.zip"
+  filename            =  "${path.module}/lambda/psycopg2-layer-py38.zip"
+  source_code_hash    =  filebase64sha256("${path.module}/lambda/psycopg2-layer-py38.zip")
   description         = "Layer with psycopg2-binary for PostgreSQL access"
 }
 
@@ -193,6 +193,7 @@ resource "aws_lambda_function" "create_db" {
 
   filename         = data.archive_file.create_db_zip.output_path
   source_code_hash = data.archive_file.create_db_zip.output_base64sha256
+
 
   environment {
     variables = {
@@ -226,6 +227,7 @@ resource "aws_lambda_function" "create_user" {
     variables = {
       RDS_HOST       = var.rds_host
       RDS_SECRET_ARN = var.rds_secret_arn
+      ROTATION_LAMBDA_ARN = aws_lambda_function.reset_password.arn
     }
   }
 
@@ -235,7 +237,6 @@ resource "aws_lambda_function" "create_user" {
   }
 
   layers = [aws_lambda_layer_version.psycopg2.arn]
-
   timeout = 45
 }
 
@@ -246,21 +247,30 @@ resource "aws_lambda_function" "reset_password" {
   function_name = "reset-password-db"
   role          = aws_iam_role.lambda_exec.arn
   handler       = "reset_password.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = "python3.8"
 
   
   filename         = data.archive_file.reset_password_zip.output_path
   source_code_hash = data.archive_file.reset_password_zip.output_base64sha256
 
-  environment {
-    variables = {
 
-      RDS_INSTANCE_ID = var.rds_instance_id
-      RDS_HOST       = var.rds_host
-      SECRET_ARN     = var.rds_secret_arn
+
+  environment {
+  variables = {
+
+    RDS_MASTER_SECRET_ARN =  var.rds_secret_arn 
+    RDS_HOST               = var.rds_host            
+   
     }
+
   }
 
+  vpc_config {
+    subnet_ids         = var.vpc_subnet_ids
+    security_group_ids = [aws_security_group.lambda_sg.id]
+  }
+  
+  layers = [aws_lambda_layer_version.psycopg2.arn]
   timeout = 40
 }
 
@@ -306,12 +316,21 @@ resource "aws_iam_policy" "lambda_secrets_access" {
           "secretsmanager:CreateSecret",
           "secretsmanager:DescribeSecret",
           "secretsmanager:PutSecretValue",
-          "secretsmanager:GetSecretValue"
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:RotateSecret",
+          "secretsmanager:UpdateSecretVersionStage"
         ],
         Resource = "arn:aws:secretsmanager:eu-central-1:340752798883:secret:*/*"
         
-         }
-    ]
+         },
+       {
+          Effect = "Allow",
+          Action = [
+              "lambda:InvokeFunction"
+        ],
+        Resource = aws_lambda_function.reset_password.arn
+       }
+     ]  
   })
 }
 
@@ -335,4 +354,11 @@ resource "aws_security_group" "lambda_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+}
+
+resource "aws_lambda_permission" "allow_secretsmanager" {
+  statement_id  = "AllowSecretsManagerInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.reset_password.function_name
+  principal     = "secretsmanager.amazonaws.com"
 }

@@ -25,7 +25,7 @@ module "rds" {
 module "rds_bootstrap" {
 
   source         = "../../modules/aws-rds-bootstrap"
-  microservices   = ["user", "course", "enrollment"]
+  microservices   = ["users", "course", "enrollment"]
 
   # From module.rds outputs
   rds_host         = module.rds.rds_host

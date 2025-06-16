@@ -16,11 +16,12 @@ def lambda_handler(event, context):
         raise Exception("Missing or invalid 'microservices' list in input.")
 
     secret_arn = os.environ["RDS_SECRET_ARN"]
+    rotation_lambda_arn = os.environ.get("ROTATION_LAMBDA_ARN")
     region     = os.environ.get("AWS_REGION", "eu-central-1")
     db_host    = os.environ["RDS_HOST"]
+
     secrets_client = boto3.client("secretsmanager", region_name=region)
 
-    # Get admin credentials
     try:
         secret = secrets_client.get_secret_value(SecretId=secret_arn)
         secret_dict = json.loads(secret["SecretString"])
@@ -29,7 +30,6 @@ def lambda_handler(event, context):
     except Exception as e:
         raise Exception(f"Secrets retrieval failed: {str(e)}")
 
-    # Connect once to postgres
     try:
         conn = psycopg2.connect(
             host=db_host,
@@ -54,19 +54,17 @@ def lambda_handler(event, context):
         secret_name = f"{svc}/db-credentials"
 
         try:
-            # Check if target DB exists
             cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
             if not cur.fetchone():
                 raise Exception(f"Database '{db_name}' does not exist")
 
-            # Check if user exists
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (db_user,))
             if cur.fetchone():
                 cur.execute(
                     sql.SQL("ALTER USER {} WITH PASSWORD %s").format(sql.Identifier(db_user)),
                     (db_pass,)
                 )
-                user_status = "updated"
+                user_status = "exists"
             else:
                 cur.execute(
                     sql.SQL("CREATE ROLE {} LOGIN PASSWORD %s").format(sql.Identifier(db_user)),
@@ -74,14 +72,12 @@ def lambda_handler(event, context):
                 )
                 user_status = "created"
 
-            # Grant privileges
             cur.execute(
                 sql.SQL("GRANT ALL PRIVILEGES ON DATABASE {} TO {}").format(
                     sql.Identifier(db_name), sql.Identifier(db_user)
                 )
             )
 
-            # Store or update secret
             secret_value = {
                 "username": db_user,
                 "password": db_pass,
@@ -90,12 +86,12 @@ def lambda_handler(event, context):
                 "port": 5432
             }
 
+            secret_status = "updated"
             try:
                 secrets_client.put_secret_value(
                     SecretId=secret_name,
                     SecretString=json.dumps(secret_value)
                 )
-                secret_status = "updated"
             except secrets_client.exceptions.ResourceNotFoundException:
                 secrets_client.create_secret(
                     Name=secret_name,
@@ -103,11 +99,31 @@ def lambda_handler(event, context):
                 )
                 secret_status = "created"
 
+            # 🔄 Enable rotation if Lambda is provided
+            if rotation_lambda_arn:
+                try:
+                    describe = secrets_client.describe_secret(SecretId=secret_name)
+                    if not describe.get("RotationEnabled"):
+                       secrets_client.rotate_secret(
+                           SecretId=secret_name,
+                           RotationLambdaARN=rotation_lambda_arn,
+                           RotationRules={ "AutomaticallyAfterDays": 30 }
+                    )
+                       rotation_status = "enabled"
+                    else:
+                       rotation_status = "already-enabled"
+                except Exception as e:
+                   rotation_status = f"error: {str(e)}"
+
+            else:
+                rotation_status = "skipped"
+        
             results.append({
                 "name": svc,
                 "status": "success",
                 "user": user_status,
-                "secret": secret_status
+                "secret": secret_status,
+                "rotation": rotation_status
             })
 
         except Exception as e:
@@ -120,7 +136,6 @@ def lambda_handler(event, context):
     cur.close()
     conn.close()
 
-    # Final evaluation
     if any(r["status"] == "failed" for r in results):
         raise Exception(json.dumps({
             "status": "error",
