@@ -11,7 +11,6 @@ resource "null_resource" "trigger_execution" {
     aws_iam_role_policy_attachment.attach_step_role,
     aws_iam_role_policy_attachment.vpc_access_attach,
     aws_iam_role_policy_attachment.basic_exec,
-    aws_iam_role_policy_attachment.lambda_s3_access_attach,
     aws_iam_role_policy_attachment.rds_modify_attach,
     aws_iam_role_policy_attachment.secrets_policy_attach
     
@@ -285,11 +284,13 @@ resource "aws_iam_policy" "lambda_rds_modify" {
         Action = [
           "rds:ModifyDBInstance"
         ],
-        Resource = "arn:aws:rds:eu-central-1:340752798883:db:*"
+        Resource = var.rds_instance_arn
       }
     ]
   })
 }
+
+#Resource = "arn:aws:rds:eu-central-1:340752798883:db:*"
 
 resource "aws_iam_role_policy_attachment" "rds_modify_attach" {
   role       = aws_iam_role.lambda_exec.name

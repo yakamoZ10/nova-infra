@@ -33,27 +33,6 @@ variable "rds_instance_arn" {
   description = "Full ARN of the RDS instance"
 }
 
-variable "lambda_s3_bucket" {
-  type        = string
-  description = "S3 bucket storing the Lambda zip files."
-}
-
-variable "lambda_create_zip" {
-  type        = string
-  description = "S3 key (path) to the create DB Lambda zip."
-}
-
-variable "lambda_create_user_zip" {
-  type        = string
-  description = "S3 key (path) to the create DB Lambda zip."
-}
-
-
-variable "lambda_reset_zip" {
-  type        = string
-  description = "S3 key (path) to the reset password Lambda zip."
-}
-
 variable "lambda_layer_arn" {
   type        = string
   description = "Optional ARN for Lambda Layer (e.g., psycopg2)."

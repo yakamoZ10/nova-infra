@@ -37,12 +37,7 @@ module "rds_bootstrap" {
   # Networking details (VPC subnets)
   vpc_subnet_ids = data.terraform_remote_state.network.outputs.private_subnets
   vpc_id         = data.terraform_remote_state.network.outputs.shared_vpc_id
-  # Lambda source Zips
-  lambda_s3_bucket   = "nova-devops-1-terraform-state"
-  lambda_create_zip  = "lambdas/create_db.zip"
-  lambda_reset_zip   = "lambdas/reset_password2.zip"
-  lambda_create_user_zip   = "lambdas/create_user.zip"
-  # Optional: trigger execution on apply
+
   trigger_execution  = true
 
 }

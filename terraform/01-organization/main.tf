@@ -3,7 +3,7 @@ locals {
 
   repos = [
     {
-      name = "devops-engineer-associate-1/nova-infra"
+      name = "yakamozo10/nova-infra"
       policy = jsonencode({
         Version = "2012-10-17",
         Statement = [
@@ -20,7 +20,7 @@ locals {
       })
     },
     {
-      name = "devops-engineer-associate-1/nova-web"
+      name = "yakamozo10/nova-web"
       policy = jsonencode({
         Version = "2012-10-17",
         Statement = [
@@ -37,7 +37,7 @@ locals {
       })
     },
     {
-      name = "devops-engineer-associate-1/nova-api"
+      name = "yakamozo10/nova-api"
       policy = jsonencode({
         Version = "2012-10-17",
         Statement = [
@@ -72,76 +72,76 @@ module "aws_org" {
   aws_accounts = local.aws_accounts
 }
 
-# --------------------------------------------------------------
-# AWS Resources for CloudFormation 
-# --------------------------------------------------------------
+#--------------------------------------------------------------
+###  AWS Resources for CloudFormation 
+#--------------------------------------------------------------
 
-resource "aws_cloudformation_stack_set" "github_oidc_provider" {
-  name             = "github-action-oidc-provider"
-  permission_model = "SERVICE_MANAGED"
-  template_body    = file("${path.module}/templates/github_action_oidc_provider.yaml")
+# resource "aws_cloudformation_stack_set" "github_oidc_provider" {
+#   name             = "github-action-oidc-provider"
+#   permission_model = "SERVICE_MANAGED"
+#   template_body    = file("${path.module}/templates/github_action_oidc_provider.yaml")
 
-  parameters = {
-    GitHubCertificate = join(",", local.github_certificate)
-  }
+#   parameters = {
+#     GitHubCertificate = join(",", local.github_certificate)
+#   }
 
-  auto_deployment {
-    enabled                          = true
-    retain_stacks_on_account_removal = false
-  }
+#   auto_deployment {
+#     enabled                          = true
+#     retain_stacks_on_account_removal = false
+#   }
 
-  operation_preferences {
-    failure_tolerance_count = 1
-    max_concurrent_count    = 3
-  }
+#   operation_preferences {
+#     failure_tolerance_count = 1
+#     max_concurrent_count    = 3
+#   }
 
-  capabilities = ["CAPABILITY_NAMED_IAM"]
-}
+#   capabilities = ["CAPABILITY_NAMED_IAM"]
+# }
 
-resource "aws_cloudformation_stack_set_instance" "github_oidc_provider_deployments" {
-  stack_set_name = aws_cloudformation_stack_set.github_oidc_provider.name
+# resource "aws_cloudformation_stack_set_instance" "github_oidc_provider_deployments" {
+#   stack_set_name = aws_cloudformation_stack_set.github_oidc_provider.name
 
-  deployment_targets {
-    organizational_unit_ids = local.target_ou_ids
-  }
+#   deployment_targets {
+#     organizational_unit_ids = local.target_ou_ids
+#   }
 
-  depends_on = [aws_cloudformation_stack_set.github_oidc_provider]
-}
+#   depends_on = [aws_cloudformation_stack_set.github_oidc_provider]
+# }
 
-resource "aws_cloudformation_stack_set" "github_iam_role" {
-  for_each = { for repo in local.repos : repo.name => repo }
+# resource "aws_cloudformation_stack_set" "github_iam_role" {
+#   for_each = { for repo in local.repos : repo.name => repo }
 
-  name             = "github-oidc-${replace(each.key, "/", "-")}"
-  permission_model = "SERVICE_MANAGED"
-  template_body    = file("${path.module}/templates/github_action_iam_role.yaml")
+#   name             = "github-oidc-${replace(each.key, "/", "-")}"
+#   permission_model = "SERVICE_MANAGED"
+#   template_body    = file("${path.module}/templates/github_action_iam_role.yaml")
 
-  parameters = {
-    GitHubRepo        = each.key
-    SanitizedRepoName = replace(each.key, "/", "-")
-    CustomPolicy      = each.value.policy
-  }
+#   parameters = {
+#     GitHubRepo        = each.key
+#     SanitizedRepoName = replace(each.key, "/", "-")
+#     CustomPolicy      = each.value.policy
+#   }
 
-  auto_deployment {
-    enabled                          = true
-    retain_stacks_on_account_removal = false
-  }
+#   auto_deployment {
+#     enabled                          = true
+#     retain_stacks_on_account_removal = false
+#   }
 
-  operation_preferences {
-    failure_tolerance_count = 1
-    max_concurrent_count    = 3
-  }
+#   operation_preferences {
+#     failure_tolerance_count = 1
+#     max_concurrent_count    = 3
+#   }
 
-  capabilities = ["CAPABILITY_NAMED_IAM"]
-}
+#   capabilities = ["CAPABILITY_NAMED_IAM"]
+# }
 
-resource "aws_cloudformation_stack_set_instance" "github_iam_role_deployments" {
-  for_each = { for repo in local.repos : repo.name => repo }
+# resource "aws_cloudformation_stack_set_instance" "github_iam_role_deployments" {
+#   for_each = { for repo in local.repos : repo.name => repo }
 
-  stack_set_name = aws_cloudformation_stack_set.github_iam_role[each.key].name
+#   stack_set_name = aws_cloudformation_stack_set.github_iam_role[each.key].name
 
-  deployment_targets {
-    organizational_unit_ids = local.target_ou_ids
-  }
+#   deployment_targets {
+#     organizational_unit_ids = local.target_ou_ids
+#   }
 
-  depends_on = [aws_cloudformation_stack_set.github_iam_role]
-}
+#   depends_on = [aws_cloudformation_stack_set.github_iam_role]
+# }

@@ -13,37 +13,37 @@ locals {
   aws_accounts = [
     {
       name      = "nova-devops-1-dev"
-      email     = "tali+astra-devops-1-dev@appstellar.academy"
+      email     = "ardiaandrejta+acc-dev@gmail.com"
       parent_id = "DEV"
       tags = merge(module.tags.default_tags, {
-        Name        = "astra-devops-1-dev"
+        Name        = "nova-devops-1-dev"
         Environment = "dev"
         OU          = "DEV"
       })
     },
     {
       name      = "nova-devops-1-network"
-      email     = "tali+astra-devops-1-network@appstellar.academy"
+      email     = "ardiaandrejta+acc-network@gmail.com"
       parent_id = "Infrastructure"
       tags = merge(module.tags.default_tags, {
-        Name        = "astra-devops-1-network"
+        Name        = "nova-devops-1-network"
         Environment = "shared"
         OU          = "Infrastructure"
       })
     },
     {
       name      = "nova-devops-1-shared-services"
-      email     = "tali+astra-devops-1-shared-services@appstellar.academy"
+      email     = "ardiaandrejta+acc-services@gmail.com"
       parent_id = "Infrastructure"
       tags = merge(module.tags.default_tags, {
-        Name        = "astra-devops-1-shared-services"
+        Name        = "nova-devops-1-shared-services"
         Environment = "shared"
         OU          = "Infrastructure"
       })
     },
     {
       name      = "nova-devops-1-prod"
-      email     = "tali+astra-devops-1-prod@appstellar.academy"
+      email     = "ardiaandrejta+acc-prod@gmail.com"
       parent_id = "PROD"
       tags = merge(module.tags.default_tags, {
         Name        = "nova-devops-1-prod"
