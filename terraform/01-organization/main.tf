@@ -1,63 +1,6 @@
-locals {
-  github_certificate = [data.tls_certificate.certificate.certificates[0].sha1_fingerprint]
 
-  repos = [
-    {
-      name = "yakamozo10/nova-infra"
-      policy = jsonencode({
-        Version = "2012-10-17",
-        Statement = [
-          {
-            Action = [
-              "vpc:*",
-              "ec2:*",
-              "cloudformation:*"
-            ]
-            Effect   = "Allow"
-            Resource = "*"
-          }
-        ]
-      })
-    },
-    {
-      name = "yakamozo10/nova-web"
-      policy = jsonencode({
-        Version = "2012-10-17",
-        Statement = [
-          {
-            Action = [
-              "vpc:*",
-              "ec2:*",
-              "cloudformation:*"
-            ]
-            Effect   = "Allow"
-            Resource = "*"
-          }
-        ]
-      })
-    },
-    {
-      name = "yakamozo10/nova-api"
-      policy = jsonencode({
-        Version = "2012-10-17",
-        Statement = [
-          {
-            Action = [
-              "vpc:*",
-              "ec2:*",
-              "cloudformation:*"
-            ]
-            Effect   = "Allow"
-            Resource = "*"
-          }
-        ]
-      })
-    }
-  ]
 
-  target_ou_names = ["Infrastructure", "Workloads"]
-  target_ou_ids   = [for ou in data.aws_organizations_organizational_units.root_ous.children : ou.id if contains(local.target_ou_names, ou.name)]
-}
+
 
 module "tags" {
   source = "../modules/default-tags"
@@ -72,76 +15,24 @@ module "aws_org" {
   aws_accounts = local.aws_accounts
 }
 
-#--------------------------------------------------------------
-###  AWS Resources for CloudFormation 
-#--------------------------------------------------------------
 
-# resource "aws_cloudformation_stack_set" "github_oidc_provider" {
-#   name             = "github-action-oidc-provider"
-#   permission_model = "SERVICE_MANAGED"
-#   template_body    = file("${path.module}/templates/github_action_oidc_provider.yaml")
+module "aws_cf_stacksets" {
+  source          = "../modules/aws-cf-stacksets"
+  target_ou_names = local.target_ou_names
+  default_tags    = module.tags.default_tags
 
-#   parameters = {
-#     GitHubCertificate = join(",", local.github_certificate)
-#   }
+  depends_on = [module.aws_org]
+}
 
-#   auto_deployment {
-#     enabled                          = true
-#     retain_stacks_on_account_removal = false
-#   }
+resource "aws_ram_sharing_with_organization" "this" {}
 
-#   operation_preferences {
-#     failure_tolerance_count = 1
-#     max_concurrent_count    = 3
-#   }
-
-#   capabilities = ["CAPABILITY_NAMED_IAM"]
-# }
-
-# resource "aws_cloudformation_stack_set_instance" "github_oidc_provider_deployments" {
-#   stack_set_name = aws_cloudformation_stack_set.github_oidc_provider.name
-
-#   deployment_targets {
-#     organizational_unit_ids = local.target_ou_ids
-#   }
-
-#   depends_on = [aws_cloudformation_stack_set.github_oidc_provider]
-# }
-
-# resource "aws_cloudformation_stack_set" "github_iam_role" {
-#   for_each = { for repo in local.repos : repo.name => repo }
-
-#   name             = "github-oidc-${replace(each.key, "/", "-")}"
-#   permission_model = "SERVICE_MANAGED"
-#   template_body    = file("${path.module}/templates/github_action_iam_role.yaml")
-
-#   parameters = {
-#     GitHubRepo        = each.key
-#     SanitizedRepoName = replace(each.key, "/", "-")
-#     CustomPolicy      = each.value.policy
-#   }
-
-#   auto_deployment {
-#     enabled                          = true
-#     retain_stacks_on_account_removal = false
-#   }
-
-#   operation_preferences {
-#     failure_tolerance_count = 1
-#     max_concurrent_count    = 3
-#   }
-
-#   capabilities = ["CAPABILITY_NAMED_IAM"]
-# }
-
-# resource "aws_cloudformation_stack_set_instance" "github_iam_role_deployments" {
-#   for_each = { for repo in local.repos : repo.name => repo }
-
-#   stack_set_name = aws_cloudformation_stack_set.github_iam_role[each.key].name
-
-#   deployment_targets {
-#     organizational_unit_ids = local.target_ou_ids
-#   }
-
-#   depends_on = [aws_cloudformation_stack_set.github_iam_role]
-# }
+module "s3_backend_policies" {
+  source             = "../modules/s3-backend/resource-policies"
+  s3_bucket_id       = data.terraform_remote_state.bootstrap.outputs.aws_s3_bucket_id
+  s3_bucket_arn      = data.terraform_remote_state.bootstrap.outputs.aws_s3_bucket_arn
+  dynamodb_table_arn = data.terraform_remote_state.bootstrap.outputs.aws_dynamodb_table_arn
+  aws_account_ids    = local.aws_account_ids
+  depends_on = [
+    module.aws_org
+  ]
+}

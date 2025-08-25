@@ -52,4 +52,9 @@ locals {
       })
     }
   ]
+
+
+  target_ou_names = ["Infrastructure", "Workloads"]
+  
+  aws_account_ids = module.aws_org.aws_account_ids
 }

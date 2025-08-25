@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create GitHub Actions OIDC IAM role with managed policy
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository (org/repo)
+
+  ManagedPolicyARN:
+    Type: String
+    Description: Managed Policy ARN for GitHub Action IAM Role
+
+  S3BucketName:
+    Description: Name of terraform state S3 bucket
+    Type: String
+
+  DynamoDBTableARN:
+    Description: ARN of DynamoDB table for state locking
+    Type: String
+
+Resources:
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - github-actions-${SanitizedRepoName}
+        - SanitizedRepoName: !Join [ "-", !Split [ "/", !Ref GitHubRepo ] ]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: "sts.amazonaws.com"
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:*
+      Description: GitHub Actions OIDC IAM role
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - !Ref ManagedPolicyARN
+
+  CustomPolicyAttachment:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub 
+        - ${SanitizedRepoName}-cross-account-access-policy
+        - SanitizedRepoName: !Join [ "-", !Split [ "/", !Ref GitHubRepo ] ]      
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowS3Access
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:ListBucket
+            Resource:
+              - !Sub arn:aws:s3:::${S3BucketName}
+              - !Sub arn:aws:s3:::${S3BucketName}/*
+          - Sid: AllowDynamoDBAccess
+            Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:DeleteItem
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource: 
+              - !Ref DynamoDBTableARN
+      Roles:
+        - !Ref IAMRole
