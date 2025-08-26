@@ -1,6 +1,6 @@
 resource "aws_organizations_organization" "this" {
   aws_service_access_principals = [
-    "controltower.amazonaws.com",
+    "controltower.amazonaws.com",    
     "sso.amazonaws.com",
     "cloudtrail.amazonaws.com",
     "config.amazonaws.com",
