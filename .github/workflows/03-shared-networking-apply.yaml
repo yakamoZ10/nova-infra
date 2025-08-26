@@ -1,0 +1,29 @@
+name: 03-shared-networking-apply
+
+on:
+  push: 
+    branches:
+      - 'main'  
+    paths:
+      - "terraform/03-shared-networking/**"
+      - "terraform/modules/aws-vpc/**"
+      - ".github/workflows/03-shared-networking-apply.yaml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+  
+jobs:
+  terraform-apply:
+    uses: yakamozo10/shared-workflouws/.github/workflows/terraform-apply-template.yaml@main
+    with:
+      terraform_version: "1.11.3"
+      working_directory: './terraform/03-shared-networking'
+      aws_iam_role_arn: 'arn:aws:iam::858955001975:role/github-actions-devops-engineer-associate-1-astra-infra'
+      aws_iam_role_session_name: "github-actions-devops-engineer-associate-1-astra-infra"
+      aws_region: "eu-central-1"
+      sonarqube_url: "https://sonarqube.dev.astralabs.cloud"
+      sonarqube_project_key: "03-shared-networking"
+    secrets:
+      sonarqube_token: ${{ secrets.SONARQUBE_TOKEN }}

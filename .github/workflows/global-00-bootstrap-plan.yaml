@@ -15,7 +15,7 @@ permissions:
   
 jobs:
   terraform-plan:
-    uses: devops-engineer-associate-1/shared-github-workflows/.github/workflows/terraform-plan-template.yaml@main
+    uses: yakamozo10/shared-workflouws/.github/workflows/terraform-plan-template.yaml@main
     with:
       terraform_version: "1.5.7"
       working_directory: './terraform/00-bootstrap'

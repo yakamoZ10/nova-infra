@@ -15,8 +15,7 @@ permissions:
   
 jobs:
   terraform-plan:
-    uses: devops-engineer-associate-1/shared-github-workflows/.github/workflows/terraform-plan-template.yaml@main
-    with:
+    uses: yakamozo10/shared-workflouws/.github/workflows/terraform-plan-template.yaml@main
       terraform_version: "1.11.3"
       working_directory: './terraform/01-organization'
       aws_iam_role_arn: 'arn:aws:iam::693868819116:role/github-nova-infra-role-management'
