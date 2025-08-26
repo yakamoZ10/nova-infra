@@ -18,6 +18,6 @@ jobs:
     uses: yakamozo10/shared-workflouws/.github/workflows/terraform-plan-template.yaml@main
       terraform_version: "1.11.3"
       working_directory: './terraform/01-organization'
-      aws_iam_role_arn: 'arn:aws:iam::693868819116:role/github-nova-infra-role-management'
+      aws_iam_role_arn: 'arn:aws:iam::340752798883:role/github-nova-infra-role-management'
       aws_iam_role_session_name: "github-nova-infra-role-management"
       aws_region: "eu-central-1"

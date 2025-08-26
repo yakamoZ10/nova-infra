@@ -20,6 +20,6 @@ jobs:
     with:
       terraform_version: "1.11.3"
       working_directory: './terraform/03-shared-networking'
-      aws_iam_role_arn: 'arn:aws:iam::858955001975:role/github-actions-devops-engineer-associate-1-astra-infra'
+      aws_iam_role_arn: 'arn:aws:iam::340752798883:role/github-actions-devops-engineer-associate-1-astra-infra'
       aws_iam_role_session_name: "github-actions-devops-engineer-associate-1-astra-infra"
       aws_region: "eu-central-1"
